@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,13 +41,18 @@ class SmsAnalysisService : Service() {
             return START_NOT_STICKY
         }
 
+        Log.d("TextShieldDebug", "onStartCommand sender=$sender bodyLen=${body?.length}")
+
         scope.launch {
             try {
                 if (!PhishingDetector.isReady) {
+                    Log.d("TextShieldDebug", "initializing model...")
                     PhishingDetector.initialize(applicationContext)
+                    Log.d("TextShieldDebug", "model initialized")
                 }
                 val result = PhishingDetector.classify(body)
                 val verdict = parseVerdict(result)
+                Log.d("TextShieldDebug", "parsedVerdict=$verdict")
                 if (verdict != Verdict.UNKNOWN) {
                     ClassificationStats.record(context = applicationContext, isPhishing = verdict == Verdict.PHISHING)
                     HistoryStore.add(
@@ -56,6 +62,7 @@ class SmsAnalysisService : Service() {
                         reason = parseReason(result),
                     )
                     if (verdict == Verdict.PHISHING) {
+                        Log.d("TextShieldDebug", "posting phishing notification")
                         PhishingNotifier.notifyPhishing(
                             context = applicationContext,
                             sender = sender,
@@ -64,6 +71,8 @@ class SmsAnalysisService : Service() {
                         )
                     }
                 }
+            } catch (e: Exception) {
+                Log.e("TextShieldDebug", "analysis failed", e)
             } finally {
                 stopSelf(startId)
             }

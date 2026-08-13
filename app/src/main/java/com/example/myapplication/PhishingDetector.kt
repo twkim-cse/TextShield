@@ -1,6 +1,7 @@
 package com.example.myapplication
 
 import android.content.Context
+import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
@@ -57,8 +58,16 @@ object PhishingDetector {
   suspend fun classify(smsText: String): String =
     withContext(Dispatchers.IO) {
       val activeConversation = conversation ?: return@withContext "모델이 초기화되지 않았습니다."
-      val response = activeConversation.sendMessage(Contents.of(listOf(Content.Text(smsText))))
-      response.toString()
+      Log.d("TextShieldDebug", "classify() input=$smsText")
+      val response =
+        try {
+          activeConversation.sendMessage(Contents.of(listOf(Content.Text(smsText)))).toString()
+        } catch (e: Exception) {
+          Log.e("TextShieldDebug", "classify() sendMessage threw", e)
+          "오류: ${e.message}"
+        }
+      Log.d("TextShieldDebug", "classify() rawOutput=$response")
+      response
     }
 
   fun cleanUp() {
